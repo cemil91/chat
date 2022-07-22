@@ -55,7 +55,7 @@ onAuthStateChanged(auth, (user) => {
 
         onValue(ref(db, `notifications/${uid}`), async(sp) => {
             const notf = sp.val();
-            $(".chats-list").empty();
+            $(".append").fadeOut("3000",function(){$(this).remove();});
             $.each(notf, async function(i,item){
                const notf_users = (await get(ref(db, 'users/'+i))).val();
                const count = Object.keys(item).length;
@@ -74,15 +74,15 @@ onAuthStateChanged(auth, (user) => {
                     
                 });
 
-
+                
                     $(".chats-list").append(`
-                    <li uid="${i}" class="list-group-item">
+                    <li uid="${i}" class="list-group-item append">
                     <figure class="avatar avatar-state-success">
                     <img src="./dist/media/img/man_avatar1.jpg" class="rounded-circle">
                     </figure>
                     <div class="users-list-body">
                     <h5>${notf_users.firstname} ${notf_users.lastname}</h5>
-                    <p>${(last_msg.message !== null ? last_msg.message : "oxunmamış mesaj yoxdur") }</p>
+                    <p>${(last_msg !== null ? last_msg.message : "oxunmamış mesaj yoxdur") }</p>
                     <div class="users-list-action">
                     <div class="new-message-count">${count}</div>
                     </div>
@@ -95,7 +95,11 @@ onAuthStateChanged(auth, (user) => {
 
 
             });
-            const user_msgss = await get_user_messages(my_id, user_id);
+
+            
+
+
+            const user_msgss = await get_user_messages(my_id, user_id).catch((err)=>console.log("permission error"));
             $('.layout .content .chat .chat-body .messages').empty();
             $.each(user_msgss, function (i, item) {
                 if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
@@ -161,7 +165,7 @@ onAuthStateChanged(auth, (user) => {
             user_id = uidd;
             my_id = uid;
 
-            const user_msgs = await get_user_messages(my_id, user_id);
+            const user_msgs = await get_user_messages(my_id, user_id).catch((err)=>console.log(err.message));
             $('.layout .content .chat .chat-body .messages').empty();
             $.each(user_msgs, function (i, item) {
                 if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
