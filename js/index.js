@@ -12,7 +12,9 @@ import {
     set,
     query,
     orderByChild,
-    onChildAdded
+    onChildAdded,
+    child,
+    remove
 } from "https://www.gstatic.com/firebasejs/9.9.0/firebase-database.js";
 
 const auth = getAuth();
@@ -53,43 +55,41 @@ onAuthStateChanged(auth, (user) => {
 
         onValue(ref(db, `notifications/${uid}`), async(sp) => {
             const notf = sp.val();
-            setTimeout(() => {
-                $(".chats-list").empty();
-            }, 1000);
-            
-            
+            $(".chats-list").empty();
             $.each(notf, async function(i,item){
                const notf_users = (await get(ref(db, 'users/'+i))).val();
                const count = Object.keys(item).length;
+               
                const last_msg_id = Object.keys(item)[count-1];
-                
-               get(ref(db, 'messages/' + uid + '_' + i)).then(async(x)=>
+               
+               await get(ref(db, 'messages/' + uid + '_' + i)).then(async(x)=>
                 {
-                    if(x.exists()) { last_msg = await get(ref(db, 'messages/' + uid + '_' + i+'/'+last_msg_id));  }
-                });
-
-               get(ref(db, 'messages/' + i + '_' + uid)).then(async(x)=>
-                {
-                    if(x.exists()) { last_msg = await get(ref(db, 'messages/' + i + '_' + uid+'/'+last_msg_id)); }
-                });
-
-                setTimeout(async() => {
+                    if(x.exists()) { last_msg = await (await get(ref(db, 'messages/' + uid + '_' + i+'/'+last_msg_id))).val();  }
                     
+                });
+
+               await get(ref(db, 'messages/' + i + '_' + uid)).then(async(x)=>
+                {
+                    if(x.exists()) { last_msg = await (await get(ref(db, 'messages/' + i + '_' + uid+'/'+last_msg_id))).val(); }
+                    
+                });
+
+
                     $(".chats-list").append(`
-                    <li uid="${i}" class="list-group-item xsx">
+                    <li uid="${i}" class="list-group-item">
                     <figure class="avatar avatar-state-success">
                     <img src="./dist/media/img/man_avatar1.jpg" class="rounded-circle">
                     </figure>
                     <div class="users-list-body">
                     <h5>${notf_users.firstname} ${notf_users.lastname}</h5>
-                    <p>${last_msg.val().message}</p>
+                    <p>${(last_msg.message !== null ? last_msg.message : "oxunmamış mesaj yoxdur") }</p>
                     <div class="users-list-action">
                     <div class="new-message-count">${count}</div>
                     </div>
                     </div>
                     </li>
                 `);
-                }, 1000);
+
                 
 
 
@@ -98,7 +98,7 @@ onAuthStateChanged(auth, (user) => {
             const user_msgss = await get_user_messages(my_id, user_id);
             $('.layout .content .chat .chat-body .messages').empty();
             $.each(user_msgss, function (i, item) {
-                ChatosExamle.Message.add(item.message);
+                if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
             });
 
 
@@ -110,30 +110,33 @@ onAuthStateChanged(auth, (user) => {
             const data = snapshot.val();
             $(".ulsearch").empty();
             $.each(data, function (i, item) {
-                $(".ulsearch").append(`<li uid="${i}" class="list-group-item">
-                                    <div>
-                                    <figure class="avatar">
-                                        <span class="avatar-title bg-success rounded-circle">${item.firstname.charAt(0)}</span>
-                                    </figure>
-                                    </div>
-                                    <div class="users-list-body">
-                                        <h5>${item.firstname} ${item.lastname}</h5>
-                                        <p>${item.about}</p>
-                                        <div class="users-list-action">
-                                            <div class="dropdown">
-                                                <a data-toggle="dropdown" href="#">
-                                                    <i class="ti-more"></i>
-                                                </a>
-                                                <div class="dropdown-menu dropdown-menu-right">
-                                                    <a href="#" class="dropdown-item">Open</a>
-                                                    <a href="#" data-navigation-target="contact-information" class="dropdown-item">Profile</a>
-                                                    <a href="#" class="dropdown-item">Add to archive</a>
-                                                    <a href="#" class="dropdown-item">Delete</a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </li>`);
+                $(".ulsearch").append(`
+                    <li uid="${i}" class="list-group-item">
+                    <div>
+                    <figure class="avatar">
+                    <span class="avatar-title bg-success rounded-circle">${item.firstname.charAt(0)}</span>
+                    </figure>
+                    </div>
+                    <div class="users-list-body">
+                    <h5>${item.firstname} ${item.lastname}</h5>
+                    <p>${item.about}</p>
+                    <div class="users-list-action">
+                    <div class="dropdown">
+                    <a data-toggle="dropdown" href="#">
+                    <i class="ti-more"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right">
+                    <a href="#" class="dropdown-item">Open</a>
+                    <a href="#" data-navigation-target="contact-information" class="dropdown-item">Profile</a>
+                    <a href="#" class="dropdown-item">Add to archive</a>
+                    <a href="#" class="dropdown-item">Delete</a>
+                    </div>
+                    </div>
+                    </div>
+                    </div>
+                    </li>
+                                
+                `);
             });
 
         });
@@ -161,8 +164,11 @@ onAuthStateChanged(auth, (user) => {
             const user_msgs = await get_user_messages(my_id, user_id);
             $('.layout .content .chat .chat-body .messages').empty();
             $.each(user_msgs, function (i, item) {
-                ChatosExamle.Message.add(item.message);
+                if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
+
             });
+
+
             
 
 
@@ -192,6 +198,12 @@ onAuthStateChanged(auth, (user) => {
             if (check2.exists()) refcheck3 = 'messages/' + user_id + '_' + my_id;
             else
                 refcheck3 = "";
+                const message_rand_id = (await get(child(ref(db), refcheck3))).val();
+                $.each(message_rand_id, function(i,item){
+                update(child(ref(db), refcheck3+'/'+i),{read:1});
+                
+                });
+                set(ref(db,'notifications/'+my_id+'/'+user_id),{0:0});
             return (await get(query(ref(db, refcheck3), orderByChild("time")))).val();
         }
 
