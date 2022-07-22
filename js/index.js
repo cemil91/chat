@@ -112,7 +112,8 @@ onAuthStateChanged(auth, (user) => {
 
         });
 
-        onChildAdded(ref(db, `message_read_notf/${uid}`), (x) => {
+        onValue(ref(db, `message_read_notf/${uid}`), (x) => {
+            console.log(1);
             refresh_msg();
         })
         ///user list
