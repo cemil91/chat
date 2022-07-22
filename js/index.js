@@ -54,8 +54,9 @@ onAuthStateChanged(auth, (user) => {
         const uid = user.uid;
 
         onValue(ref(db, `notifications/${uid}`), async(sp) => {
+            
             const notf = sp.val();
-            $(".append").fadeOut("3000",function(){$(this).remove();});
+            $(".chats-list").empty()
             $.each(notf, async function(i,item){
                const notf_users = (await get(ref(db, 'users/'+i))).val();
                const count = Object.keys(item).length;
