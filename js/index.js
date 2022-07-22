@@ -31,14 +31,17 @@ var last_msg = "";
 
 var ChatosExamle = {
     Message: {
-        add: function (message, type) {
+        add: function (message, type, time, read) {
+            var cls = "";
+            if (read == 1) cls = "ti-double-check text-success";
+            else cls = "ti-double-check";
             var chat_body = $('.layout .content .chat .chat-body');
             if (chat_body.length > 0) {
 
                 type = type ? type : '';
                 message = message ? message : 'Lorem ipsum dolor sit amet.';
 
-                $('.layout .content .chat .chat-body .messages').append('<div class="message-item ' + type + '"><div class="message-content">' + message + '</div><div class="message-action">PM 14:25 ' + (type ? '<i class="ti-check"></i>' : '') + '</div></div>');
+                $('.layout .content .chat .chat-body .messages').append('<div class="message-item ' + type + '"><div class="message-content">' + message + '</div><div class="message-action">' + new Date(time).toLocaleString() + ' ' + (type ? '<i class="' + cls + '"></i>' : '') + '</div></div>');
 
                 chat_body.scrollTop(chat_body.get(0).scrollHeight, -1).niceScroll({
                     cursorcolor: 'rgba(66, 66, 66, 0.20)',
@@ -49,34 +52,39 @@ var ChatosExamle = {
         }
     }
 };
+
+
+
 onAuthStateChanged(auth, (user) => {
     if (user) {
         const uid = user.uid;
 
-        onValue(ref(db, `notifications/${uid}`), async(sp) => {
-            
+        onValue(ref(db, `notifications/${uid}`), async (sp) => {
+
             const notf = sp.val();
             $(".chats-list").empty()
-            $.each(notf, async function(i,item){
-               const notf_users = (await get(ref(db, 'users/'+i))).val();
-               const count = Object.keys(item).length;
-               
-               const last_msg_id = Object.keys(item)[count-1];
-               
-               await get(ref(db, 'messages/' + uid + '_' + i)).then(async(x)=>
-                {
-                    if(x.exists()) { last_msg = await (await get(ref(db, 'messages/' + uid + '_' + i+'/'+last_msg_id))).val();  }
-                    
+            $.each(notf, async function (i, item) {
+                const notf_users = (await get(ref(db, 'users/' + i))).val();
+                const count = Object.keys(item).length;
+
+                const last_msg_id = Object.keys(item)[count - 1];
+
+                await get(ref(db, 'messages/' + uid + '_' + i)).then(async (x) => {
+                    if (x.exists()) {
+                        last_msg = await (await get(ref(db, 'messages/' + uid + '_' + i + '/' + last_msg_id))).val();
+                    }
+
                 });
 
-               await get(ref(db, 'messages/' + i + '_' + uid)).then(async(x)=>
-                {
-                    if(x.exists()) { last_msg = await (await get(ref(db, 'messages/' + i + '_' + uid+'/'+last_msg_id))).val(); }
-                    
+                await get(ref(db, 'messages/' + i + '_' + uid)).then(async (x) => {
+                    if (x.exists()) {
+                        last_msg = await (await get(ref(db, 'messages/' + i + '_' + uid + '/' + last_msg_id))).val();
+                    }
+
                 });
 
-                
-                    $(".chats-list").append(`
+
+                $(".chats-list").append(`
                     <li uid="${i}" class="list-group-item append">
                     <figure class="avatar avatar-state-success">
                     <img src="./dist/media/img/man_avatar1.jpg" class="rounded-circle">
@@ -91,25 +99,22 @@ onAuthStateChanged(auth, (user) => {
                     </li>
                 `);
 
-                
+
 
 
 
             });
 
-            
 
 
-            const user_msgss = await get_user_messages(my_id, user_id).catch((err)=>console.log("permission error"));
-            $('.layout .content .chat .chat-body .messages').empty();
-            $.each(user_msgss, function (i, item) {
-                if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
-            });
 
+        refresh_msg();
 
         });
 
-        
+        onChildAdded(ref(db, `message_read_notf/${uid}`), (x) => {
+            refresh_msg();
+        })
         ///user list
         onValue(ref(db, 'users'), (snapshot) => {
             const data = snapshot.val();
@@ -165,21 +170,7 @@ onAuthStateChanged(auth, (user) => {
             $("#username").html(user_inf.firstname + ' ' + user_inf.lastname);
             user_id = uidd;
             my_id = uid;
-
-            const user_msgs = await get_user_messages(my_id, user_id).catch((err)=>console.log(err.message));
-            $('.layout .content .chat .chat-body .messages').empty();
-            $.each(user_msgs, function (i, item) {
-                if(item.sender_id == my_id)ChatosExamle.Message.add(item.message,"outgoing-message"); else ChatosExamle.Message.add(item.message);
-
-            });
-
-
-            
-
-
-
-
-
+            refresh_msg();
         });
 
 
@@ -203,17 +194,39 @@ onAuthStateChanged(auth, (user) => {
             if (check2.exists()) refcheck3 = 'messages/' + user_id + '_' + my_id;
             else
                 refcheck3 = "";
-                const message_rand_id = (await get(child(ref(db), refcheck3))).val();
-                $.each(message_rand_id, function(i,item){
-                update(child(ref(db), refcheck3+'/'+i),{read:1});
-                
-                });
-                set(ref(db,'notifications/'+my_id+'/'+user_id),{0:0});
+            const message_rand_id = (await get(child(ref(db), refcheck3))).val();
+            let j = 0;
+            $.each(message_rand_id, function (i, item) {
+                j++;
+                if (item.sender_id == user_id) {
+                    update(child(ref(db), refcheck3 + '/' + i), {
+                        read: 1
+                    });
+                    if(item.read == 0)
+                    {
+                        set(push(ref(db, 'message_read_notf/' + user_id)), {
+                            read: 1
+                        });
+                    }
+
+                    
+                }
+
+            });
+            set(ref(db, 'notifications/' + my_id + '/' + user_id), {});
+
             return (await get(query(ref(db, refcheck3), orderByChild("time")))).val();
         }
 
 
-
+        async function refresh_msg() {
+            const user_msgss = await get_user_messages(my_id, user_id).catch((err) => console.log("permission error"));
+            $('.layout .content .chat .chat-body .messages').empty();
+            $.each(user_msgss, function (i, item) {
+                if (item.sender_id == my_id) ChatosExamle.Message.add(item.message, "outgoing-message", item.time, item.read);
+                else ChatosExamle.Message.add(item.message, "", item.time, item.read);
+            });
+        }
 
     } else {
         location.href = "login.html";
@@ -236,7 +249,7 @@ $(document).ready(function () {
         message = $.trim(message);
 
         if (message) {
-            ChatosExamle.Message.add(message, 'outgoing-message');
+            ChatosExamle.Message.add(message, 'outgoing-message', new Date().getTime());
             input.val('');
 
             const msg = ref(db, 'messages');
